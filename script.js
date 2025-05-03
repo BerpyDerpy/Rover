@@ -1,5 +1,5 @@
 // MQTT Connection Parameters
-const MQTT_BROKER = "wss:47161622944946a5b84109affb7c79ce.s1.eu.hivemq.cloud"; 
+const MQTT_BROKER = "47161622944946a5b84109affb7c79ce.s1.eu.hivemq.cloud"; 
 const MQTT_PORT = 8884; 
 const MQTT_USER = "ESP32"; 
 const MQTT_PASSWORD = "Anakonda1#"; 
