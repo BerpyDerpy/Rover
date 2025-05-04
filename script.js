@@ -1,11 +1,3 @@
-// MQTT Connection Parameters
-const MQTT_BROKER = "47161622944946a5b84109affb7c79ce.s1.eu.hivemq.cloud"; 
-const MQTT_PORT = 8884; 
-const MQTT_USER = "ESP32"; 
-const MQTT_PASSWORD = "Anakonda1#"; 
-const MQTT_COMMAND_TOPIC = "esp32/rover/command"; // Command topic
-const MQTT_STATUS_TOPIC = "esp32/rover/status"; // Status topic
-
 // Create a random client ID for the browser session
 const MQTT_CLIENT_ID = "webClient_" + Math.random().toString(16).substr(2, 8);
 
@@ -63,50 +55,101 @@ window.onload = function() {
     setupButtonEvents();
 };
 
-// Setup events for both mouse and touch interfaces
+// Setup events for both mouse and touch interfaces with press and release handlers
 function setupButtonEvents() {
-    // Forward button
+    // Setup each button with press and release events
     setupButtonEventListeners(forwardBtn, COMMANDS.FORWARD);
-    
-    // Left button
     setupButtonEventListeners(leftBtn, COMMANDS.LEFT);
-    
-    // Stop button
     setupButtonEventListeners(stopBtn, COMMANDS.STOP);
-    
-    // Right button
     setupButtonEventListeners(rightBtn, COMMANDS.RIGHT);
-    
-    // Backward button
     setupButtonEventListeners(backwardBtn, COMMANDS.BACKWARD);
+    
+    // Add document-level event listeners to handle cases where release happens outside buttons
+    document.addEventListener('mouseup', handleReleaseOutside);
+    document.addEventListener('touchend', handleReleaseOutside);
+    document.addEventListener('touchcancel', handleReleaseOutside);
 }
 
 function setupButtonEventListeners(button, command) {
     // Mouse events
-    button.addEventListener('mousedown', function() {
-        activateControl(command, button);
+    button.addEventListener('mousedown', function(e) {
+        e.preventDefault();
+        activateButton(command, button);
+    });
+    
+    button.addEventListener('mouseup', function(e) {
+        e.preventDefault();
+        deactivateButton(button);
+    });
+    
+    button.addEventListener('mouseleave', function(e) {
+        // Only deactivate if button was pressed
+        if (button.classList.contains('pressed')) {
+            // Don't send STOP command yet, as user might still be pressing mouse
+            // Just remove the visual pressed state
+            button.classList.remove('pressed');
+        }
     });
     
     // Touch events for mobile
     button.addEventListener('touchstart', function(e) {
         e.preventDefault(); // Prevent default touch behavior
-        activateControl(command, button);
+        activateButton(command, button);
+    });
+    
+    button.addEventListener('touchend', function(e) {
+        e.preventDefault();
+        deactivateButton(button);
+    });
+    
+    button.addEventListener('touchcancel', function(e) {
+        e.preventDefault();
+        deactivateButton(button);
     });
 }
 
-function activateControl(command, button) {
+function activateButton(command, button) {
     if (!isConnected) return;
     
-    // Reset all buttons
+    // Reset all buttons' visual state
     controlButtons.forEach(btn => btn.classList.remove('pressed'));
     
     // Highlight the active button
     button.classList.add('pressed');
     
-    // Send the command if it's different from the current one
-    if (currentCommand !== command) {
-        sendCommand(command);
-        currentCommand = command;
+    // Send the command
+    sendCommand(command);
+    currentCommand = command;
+}
+
+function deactivateButton(button) {
+    if (!isConnected) return;
+    
+    // Only send STOP if this was the active button
+    if (button.classList.contains('pressed')) {
+        button.classList.remove('pressed');
+        stopBtn.classList.add('pressed');
+        
+        // Send STOP command
+        sendCommand(COMMANDS.STOP);
+        currentCommand = COMMANDS.STOP;
+    }
+}
+
+// Handle case where user releases mouse/touch outside any button
+function handleReleaseOutside(e) {
+    // If any button is currently pressed, stop the rover
+    let wasButtonPressed = controlButtons.some(btn => 
+        btn !== stopBtn && btn.classList.contains('pressed'));
+    
+    if (wasButtonPressed) {
+        // Reset all buttons
+        controlButtons.forEach(btn => btn.classList.remove('pressed'));
+        stopBtn.classList.add('pressed');
+        
+        // Send STOP command
+        sendCommand(COMMANDS.STOP);
+        currentCommand = COMMANDS.STOP;
     }
 }
 
@@ -162,29 +205,33 @@ function onMessageArrived(message) {
     if (message.destinationName === MQTT_STATUS_TOPIC) {
         statusElement.textContent = `Rover Status: ${message.payloadString}`;
         
-        // Update button state based on status
-        controlButtons.forEach(btn => btn.classList.remove('pressed'));
-        
-        // Highlight the current active button based on status
-        switch(message.payloadString) {
-            case COMMANDS.FORWARD:
-                forwardBtn.classList.add('pressed');
-                break;
-            case COMMANDS.LEFT:
-                leftBtn.classList.add('pressed');
-                break;
-            case COMMANDS.STOP:
-                stopBtn.classList.add('pressed');
-                break;
-            case COMMANDS.RIGHT:
-                rightBtn.classList.add('pressed');
-                break;
-            case COMMANDS.BACKWARD:
-                backwardBtn.classList.add('pressed');
-                break;
-        }
-        
+        // Update UI to reflect current status from rover feedback
+        updateButtonsFromStatus(message.payloadString);        
         currentCommand = message.payloadString;
+    }
+}
+
+function updateButtonsFromStatus(status) {
+    // Reset all buttons
+    controlButtons.forEach(btn => btn.classList.remove('pressed'));
+    
+    // Highlight the current active button based on status
+    switch(status) {
+        case COMMANDS.FORWARD:
+            forwardBtn.classList.add('pressed');
+            break;
+        case COMMANDS.LEFT:
+            leftBtn.classList.add('pressed');
+            break;
+        case COMMANDS.STOP:
+            stopBtn.classList.add('pressed');
+            break;
+        case COMMANDS.RIGHT:
+            rightBtn.classList.add('pressed');
+            break;
+        case COMMANDS.BACKWARD:
+            backwardBtn.classList.add('pressed');
+            break;
     }
 }
 
