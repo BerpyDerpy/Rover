@@ -1,3 +1,10 @@
+// MQTT Connection Parameters
+ const MQTT_BROKER = "47161622944946a5b84109affb7c79ce.s1.eu.hivemq.cloud"; 
+ const MQTT_PORT = 8884; 
+ const MQTT_USER = "ESP32"; 
+ const MQTT_PASSWORD = "Anakonda1#"; 
+ const MQTT_COMMAND_TOPIC = "esp32/rover/command"; // Command topic
+ const MQTT_STATUS_TOPIC = "esp32/rover/status"; // Status topic
 // Create a random client ID for the browser session
 const MQTT_CLIENT_ID = "webClient_" + Math.random().toString(16).substr(2, 8);
 
