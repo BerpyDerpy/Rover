@@ -7,7 +7,7 @@
     <style>
         body {
             font-family: Arial, sans-serif;
-            max-width: 600px;
+            max-width: 800px;
             margin: 0 auto;
             padding: 20px;
             text-align: center;
@@ -20,7 +20,7 @@
             margin-top: 20px;
             box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
         }
-        h1 {
+        h1, h2 {
             color: #333;
         }
         .controls {
@@ -85,26 +85,174 @@
         .status-container {
             margin-top: 20px;
         }
+        
+        /* Radar display styles */
+        .dashboard {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        @media (min-width: 768px) {
+            .dashboard {
+                flex-direction: row;
+            }
+            
+            .control-section, .radar-section {
+                flex: 1;
+            }
+        }
+        
+        .radar-container {
+            position: relative;
+            width: 300px;
+            height: 300px;
+            margin: 0 auto;
+            background-color: #f0f0f0;
+            border-radius: 50%;
+            overflow: hidden;
+            border: 2px solid #ddd;
+        }
+        
+        .radar-scan {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            clip-path: polygon(50% 50%, 50% 0%, 100% 0%, 100% 50%);
+            background: radial-gradient(circle, rgba(76, 175, 80, 0.1) 0%, rgba(76, 175, 80, 0.3) 100%);
+            transform-origin: bottom left;
+            transform: rotate(0deg);
+            transition: transform 0.3s ease;
+        }
+        
+        .radar-center {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 10px;
+            height: 10px;
+            background-color: #4CAF50;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+        }
+        
+        .radar-grid {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+        }
+        
+        .radar-circle {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            border: 1px dashed #999;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+        }
+        
+        .radar-circle-1 {
+            width: 33%;
+            height: 33%;
+        }
+        
+        .radar-circle-2 {
+            width: 66%;
+            height: 66%;
+        }
+        
+        .radar-circle-3 {
+            width: 100%;
+            height: 100%;
+        }
+        
+        .radar-line {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 50%;
+            height: 1px;
+            background-color: #999;
+            transform-origin: left center;
+        }
+        
+        .obstacle {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background-color: red;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            transition: all 0.3s ease;
+        }
+        
+        .radar-distance {
+            position: absolute;
+            font-size: 10px;
+            color: #666;
+        }
+        
+        .radar-controls {
+            margin-top: 15px;
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+        }
     </style>
     <!-- Import Paho MQTT library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js" type="text/javascript"></script>
 </head>
 <body>
-    <div class="container">
-        <h1>Rover Control</h1>
-        
-        <div class="status-container">
-            <div id="status">Connecting to MQTT Broker...</div>
+    <h1>ESP32 Rover Dashboard</h1>
+    
+    <div class="dashboard">
+        <div class="control-section container">
+            <h2>Rover Control</h2>
+            
+            <div class="status-container">
+                <div id="status">Connecting to MQTT Broker...</div>
+            </div>
+            
+            <div class="controls">
+                <button id="forwardBtn" class="control-btn">FORWARD</button>
+                <button id="leftBtn" class="control-btn">LEFT</button>
+                <button id="stopBtn" class="control-btn">BRAKE</button>
+                <button id="rightBtn" class="control-btn">RIGHT</button>
+                <button id="backwardBtn" class="control-btn">BACKWARD</button>
+            </div>
         </div>
         
-        <div class="controls">
-            <button id="forwardBtn" class="control-btn">FORWARD</button>
-            <button id="leftBtn" class="control-btn">LEFT</button>
-            <button id="stopBtn" class="control-btn">BRAKE</button>
-            <button id="rightBtn" class="control-btn">RIGHT</button>
-            <button id="backwardBtn" class="control-btn">BACKWARD</button>
+        <div class="radar-section container">
+            <h2>Radar Display</h2>
+            <div class="radar-container">
+                <div class="radar-grid">
+                    <div class="radar-circle radar-circle-1"></div>
+                    <div class="radar-circle radar-circle-2"></div>
+                    <div class="radar-circle radar-circle-3"></div>
+                    <div class="radar-line" style="transform: rotate(0deg)"></div>
+                    <div class="radar-line" style="transform: rotate(45deg)"></div>
+                    <div class="radar-line" style="transform: rotate(90deg)"></div>
+                    <div class="radar-line" style="transform: rotate(135deg)"></div>
+                </div>
+                <div class="radar-scan"></div>
+                <div class="radar-center"></div>
+                <!-- Obstacles will be added dynamically -->
+                <div class="radar-distance radar-distance-1" style="top: 33%; left: 51%;">100cm</div>
+                <div class="radar-distance radar-distance-2" style="top: 16%; left: 51%;">200cm</div>
+                <div class="radar-distance radar-distance-3" style="top: 0%; left: 51%;">300cm</div>
+            </div>
+            <div class="radar-controls">
+                <button id="radarOnBtn" class="control-btn">RADAR ON</button>
+                <button id="radarOffBtn" class="control-btn">RADAR OFF</button>
+            </div>
         </div>
     </div>
+
     <script src="script.js"></script>
 </body>
 </html>
