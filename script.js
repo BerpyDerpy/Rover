@@ -1,10 +1,12 @@
 // MQTT Connection Parameters
- const MQTT_BROKER = "47161622944946a5b84109affb7c79ce.s1.eu.hivemq.cloud"; 
- const MQTT_PORT = 8884; 
- const MQTT_USER = "ESP32"; 
- const MQTT_PASSWORD = "Anakonda1#"; 
- const MQTT_COMMAND_TOPIC = "esp32/rover/command"; // Command topic
- const MQTT_STATUS_TOPIC = "esp32/rover/status"; // Status topic
+const MQTT_BROKER = "47161622944946a5b84109affb7c79ce.s1.eu.hivemq.cloud"; 
+const MQTT_PORT = 8884; 
+const MQTT_USER = "ESP32"; 
+const MQTT_PASSWORD = "Anakonda1#"; 
+const MQTT_COMMAND_TOPIC = "esp32/rover/command"; // Command topic
+const MQTT_STATUS_TOPIC = "esp32/rover/status"; // Status topic
+const MQTT_RADAR_TOPIC = "esp32/rover/radar"; // Radar data topic
+
 // Create a random client ID for the browser session
 const MQTT_CLIENT_ID = "webClient_" + Math.random().toString(16).substr(2, 8);
 
@@ -15,6 +17,12 @@ const leftBtn = document.getElementById('leftBtn');
 const stopBtn = document.getElementById('stopBtn');
 const rightBtn = document.getElementById('rightBtn');
 const backwardBtn = document.getElementById('backwardBtn');
+const radarOnBtn = document.getElementById('radarOnBtn');
+const radarOffBtn = document.getElementById('radarOffBtn');
+
+// Radar elements
+const radarScan = document.querySelector('.radar-scan');
+const radarContainer = document.querySelector('.radar-container');
 
 // Store all control buttons in an array for easier management
 const controlButtons = [forwardBtn, leftBtn, stopBtn, rightBtn, backwardBtn];
@@ -23,6 +31,9 @@ const controlButtons = [forwardBtn, leftBtn, stopBtn, rightBtn, backwardBtn];
 let currentCommand = "STOP";
 let isConnected = false;
 let mqttClient = null;
+let isRadarEnabled = false;
+let radarData = {};
+let obstacles = {};
 
 // Command constants
 const COMMANDS = {
@@ -30,7 +41,9 @@ const COMMANDS = {
     LEFT: "LEFT",
     STOP: "STOP",
     RIGHT: "RIGHT",
-    BACKWARD: "BACKWARD"
+    BACKWARD: "BACKWARD",
+    RADAR_ON: "RADAR_ON",
+    RADAR_OFF: "RADAR_OFF"
 };
 
 // Wait for the page to fully load before connecting to MQTT
@@ -60,6 +73,9 @@ window.onload = function() {
 
     // Setup button events
     setupButtonEvents();
+    
+    // Setup radar button events
+    setupRadarControls();
 };
 
 // Setup events for both mouse and touch interfaces with press and release handlers
@@ -75,6 +91,25 @@ function setupButtonEvents() {
     document.addEventListener('mouseup', handleReleaseOutside);
     document.addEventListener('touchend', handleReleaseOutside);
     document.addEventListener('touchcancel', handleReleaseOutside);
+}
+
+function setupRadarControls() {
+    radarOnBtn.addEventListener('click', function() {
+        sendCommand(COMMANDS.RADAR_ON);
+        radarOnBtn.classList.add('pressed');
+        radarOffBtn.classList.remove('pressed');
+        isRadarEnabled = true;
+    });
+    
+    radarOffBtn.addEventListener('click', function() {
+        sendCommand(COMMANDS.RADAR_OFF);
+        radarOffBtn.classList.add('pressed');
+        radarOnBtn.classList.remove('pressed');
+        isRadarEnabled = false;
+    });
+    
+    // Default to radar off
+    radarOffBtn.classList.add('pressed');
 }
 
 function setupButtonEventListeners(button, command) {
@@ -170,6 +205,10 @@ function onConnect() {
     // Subscribe to status topic for feedback
     mqttClient.subscribe(MQTT_STATUS_TOPIC);
     console.log(`Subscribed to ${MQTT_STATUS_TOPIC}`);
+    
+    // Subscribe to radar data topic
+    mqttClient.subscribe(MQTT_RADAR_TOPIC);
+    console.log(`Subscribed to ${MQTT_RADAR_TOPIC}`);
 
     // Send STOP command initially to ensure rover is stationary
     sendCommand(COMMANDS.STOP);
@@ -215,6 +254,25 @@ function onMessageArrived(message) {
         // Update UI to reflect current status from rover feedback
         updateButtonsFromStatus(message.payloadString);        
         currentCommand = message.payloadString;
+        
+        // Update radar controls if status contains radar info
+        if (message.payloadString === "RADAR_ON") {
+            radarOnBtn.classList.add('pressed');
+            radarOffBtn.classList.remove('pressed');
+            isRadarEnabled = true;
+        } else if (message.payloadString === "RADAR_OFF") {
+            radarOffBtn.classList.add('pressed');
+            radarOnBtn.classList.remove('pressed');
+            isRadarEnabled = false;
+        }
+    } else if (message.destinationName === MQTT_RADAR_TOPIC) {
+        // Process radar data
+        try {
+            const radarData = JSON.parse(message.payloadString);
+            updateRadarDisplay(radarData);
+        } catch (e) {
+            console.error("Error parsing radar data:", e);
+        }
     }
 }
 
@@ -239,6 +297,84 @@ function updateButtonsFromStatus(status) {
         case COMMANDS.BACKWARD:
             backwardBtn.classList.add('pressed');
             break;
+    }
+}
+
+// --- Radar Functions ---
+function updateRadarDisplay(data) {
+    if (!isRadarEnabled) return;
+    
+    // Update radar scan line position
+    const angleInDegrees = data.angle;
+    radarScan.style.transform = `rotate(${angleInDegrees}deg)`;
+    
+    // Calculate position on radar (convert polar to cartesian coordinates)
+    // The radar is 300px wide, so we scale the distance to fit within that
+    // Map the distance to a maximum of 150px (radius of the radar)
+    const maxDistance = 400; // cm - maximum measurable distance from HC-SR04
+    const radarRadius = 150; // pixels
+    
+    // Scale distance to fit within radar
+    const scaledDistance = Math.min(data.distance, maxDistance) / maxDistance * radarRadius;
+    
+    // Convert to radians for calculation
+    const angleInRadians = (angleInDegrees - 90) * Math.PI / 180;
+    
+    // Calculate x and y position (relative to center of radar)
+    const x = scaledDistance * Math.cos(angleInRadians);
+    const y = scaledDistance * Math.sin(angleInRadians);
+    
+    // Adjust to radar container coordinates (center is at 150,150)
+    const centerX = 150;
+    const centerY = 150;
+    const posX = centerX + x;
+    const posY = centerY + y;
+    
+    // Update or create obstacle marker
+    const obstacleKey = `obstacle-${angleInDegrees}`;
+    
+    // Only display obstacles if distance is valid and less than max range
+    if (data.distance > 0 && data.distance < maxDistance) {
+        if (!obstacles[obstacleKey]) {
+            // Create new obstacle
+            const obstacle = document.createElement('div');
+            obstacle.className = 'obstacle';
+            obstacle.style.left = `${posX}px`;
+            obstacle.style.top = `${posY}px`;
+            
+            // Add some data attributes for later reference
+            obstacle.dataset.angle = angleInDegrees;
+            obstacle.dataset.distance = data.distance;
+            
+            radarContainer.appendChild(obstacle);
+            obstacles[obstacleKey] = obstacle;
+        } else {
+            // Update existing obstacle
+            obstacles[obstacleKey].style.left = `${posX}px`;
+            obstacles[obstacleKey].style.top = `${posY}px`;
+            obstacles[obstacleKey].dataset.distance = data.distance;
+        }
+        
+        // Make recent obstacles more prominent
+        Object.values(obstacles).forEach(obs => {
+            obs.style.opacity = '0.3';
+        });
+        obstacles[obstacleKey].style.opacity = '1';
+        
+    } else if (obstacles[obstacleKey]) {
+        // Remove obstacle if distance is invalid or too far
+        radarContainer.removeChild(obstacles[obstacleKey]);
+        delete obstacles[obstacleKey];
+    }
+    
+    // Clean up old obstacles that haven't been updated for a while
+    // This is a simple implementation - it only keeps the last 36 angles (every 10 degrees)
+    const currentObstacles = Object.keys(obstacles);
+    if (currentObstacles.length > 36) {
+        // Find the oldest obstacle and remove it
+        const oldestKey = currentObstacles[0];
+        radarContainer.removeChild(obstacles[oldestKey]);
+        delete obstacles[oldestKey];
     }
 }
 
