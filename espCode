@@ -1,0 +1,200 @@
+#include <WiFi.h>
+#include <PubSubClient.h>
+
+// --- WiFi Credentials ---
+const char* ssid = "*****";
+const char* password = "********";
+
+// --- MQTT Broker Details ---
+const char* mqtt_server = "47161622944946a5b84109affb7c79ce.s1.eu.hivemq.cloud";
+const int mqtt_port = 8883; 
+const char* mqtt_user = "ESP32";
+const char* mqtt_password = "Anakonda1#";
+
+// --- Motor Driver Pin Definitions ---
+// DRV8833 has 4 input pins (2 per motor) and an enable pin
+#define MOTOR_A_IN1 32  // Left motor input 1
+#define MOTOR_A_IN2 26  // Left motor input 2
+#define MOTOR_B_IN1 27  // Right motor input 1
+#define MOTOR_B_IN2 14  // Right motor input 2
+
+
+// --- MQTT Topics ---
+const char* MQTT_COMMAND_TOPIC = "esp32/rover/command"; // Topic to listen for commands (FORWARD, LEFT, etc.)
+const char* MQTT_STATUS_TOPIC = "esp32/rover/status";   // Topic to publish status
+
+// --- MQTT Client Setup ---
+#include <WiFiClientSecure.h>
+WiFiClientSecure wifiClientSecure; // Use this for secure MQTT (port 8883)
+PubSubClient client(wifiClientSecure);
+
+long lastMsg = 0;
+char msg[50];
+int value = 0;
+
+// --- Function Declarations ---
+void setup_wifi();
+void callback(char* topic, byte* payload, unsigned int length);
+void reconnect();
+void controlMotors(const char* command);
+
+// --- Arduino Setup Function ---
+void setup() {
+  Serial.begin(115200);
+  
+  // Initialize motor pins
+  pinMode(MOTOR_A_IN1, OUTPUT);
+  pinMode(MOTOR_A_IN2, OUTPUT);
+  pinMode(MOTOR_B_IN1, OUTPUT);
+  pinMode(MOTOR_B_IN2, OUTPUT);
+  
+  // Make sure motors are stopped initially
+  digitalWrite(MOTOR_A_IN1, LOW);
+  digitalWrite(MOTOR_A_IN2, LOW);
+  digitalWrite(MOTOR_B_IN1, LOW);
+  digitalWrite(MOTOR_B_IN2, LOW);
+  
+
+
+  setup_wifi(); // Connect to WiFi
+
+  // Configure WiFiClientSecure for TLS (required by HiveMQ Cloud)
+  wifiClientSecure.setInsecure(); // Use cautiously for testing ONLY
+
+  client.setServer(mqtt_server, mqtt_port); // Set MQTT broker details
+  client.setCallback(callback);             // Set message handler function
+}
+
+// --- Arduino Loop Function ---
+void loop() {
+  if (!client.connected()) {
+    reconnect(); // Attempt to reconnect if MQTT connection is lost
+  }
+  client.loop(); // Process incoming messages and maintain connection
+
+  // Optional: Add a small delay to prevent busy-waiting
+  delay(10);
+}
+
+// --- WiFi Setup Function ---
+void setup_wifi() {
+  delay(10);
+  Serial.println();
+  Serial.print("Connecting to ");
+  Serial.println(ssid);
+
+  WiFi.begin(ssid, password);
+
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+
+  randomSeed(micros()); // Seed random number generator (used for client ID)
+
+  Serial.println("");
+  Serial.println("WiFi connected");
+  Serial.println("IP address: ");
+  Serial.println(WiFi.localIP());
+}
+
+// --- MQTT Message Callback Function ---
+void callback(char* topic, byte* payload, unsigned int length) {
+  Serial.print("Message arrived [");
+  Serial.print(topic);
+  Serial.print("] ");
+
+  // Create a null-terminated string from the payload
+  char message[length + 1];
+  memcpy(message, payload, length);
+  message[length] = '\0'; // Null-terminate the string
+  Serial.println(message);
+
+  // Process the command
+  if (strcmp(topic, MQTT_COMMAND_TOPIC) == 0) { // Check if the message is on our command topic
+    controlMotors(message);
+    client.publish(MQTT_STATUS_TOPIC, message); // Publish status back
+  }
+}
+
+// --- Control Motors Function ---
+void controlMotors(const char* command) {
+  Serial.print("Executing command: ");
+  Serial.println(command);
+  
+  if (strcmp(command, "FORWARD") == 0) {
+    // Left motor forward
+    digitalWrite(MOTOR_A_IN1, HIGH);
+    digitalWrite(MOTOR_A_IN2, LOW);
+    // Right motor forward
+    digitalWrite(MOTOR_B_IN1, HIGH);
+    digitalWrite(MOTOR_B_IN2, LOW);
+  } 
+  else if (strcmp(command, "BACKWARD") == 0) {
+    // Left motor backward
+    digitalWrite(MOTOR_A_IN1, LOW);
+    digitalWrite(MOTOR_A_IN2, HIGH);
+    // Right motor backward
+    digitalWrite(MOTOR_B_IN1, LOW);
+    digitalWrite(MOTOR_B_IN2, HIGH);
+  }
+  else if (strcmp(command, "LEFT") == 0) {
+    // Left motor backward
+    digitalWrite(MOTOR_A_IN1, LOW);
+    digitalWrite(MOTOR_A_IN2, HIGH);
+    // Right motor forward
+    digitalWrite(MOTOR_B_IN1, HIGH);
+    digitalWrite(MOTOR_B_IN2, LOW);
+  }
+  else if (strcmp(command, "RIGHT") == 0) {
+    // Left motor forward
+    digitalWrite(MOTOR_A_IN1, HIGH);
+    digitalWrite(MOTOR_A_IN2, LOW);
+    // Right motor backward
+    digitalWrite(MOTOR_B_IN1, LOW);
+    digitalWrite(MOTOR_B_IN2, HIGH);
+  }
+  else if (strcmp(command, "STOP") == 0) {
+    // Stop both motors
+    digitalWrite(MOTOR_A_IN1, LOW);
+    digitalWrite(MOTOR_A_IN2, LOW);
+    digitalWrite(MOTOR_B_IN1, LOW);
+    digitalWrite(MOTOR_B_IN2, LOW);
+  }
+  else {
+    Serial.println("Unknown command received");
+  }
+}
+
+// --- MQTT Reconnect Function ---
+void reconnect() {
+  // Loop until we're reconnected
+  while (!client.connected()) {
+    Serial.print("Attempting MQTT connection...");
+    // Create a random client ID
+    String clientId = "ESP32RoverClient-";
+    clientId += String(random(0xffff), HEX);
+
+    // Attempt to connect
+    // Provide username and password for HiveMQ Cloud
+    if (client.connect(clientId.c_str(), mqtt_user, mqtt_password)) {
+      Serial.println("connected");
+      // Publish a connection message
+      client.publish(MQTT_STATUS_TOPIC, "Connected");
+      // Subscribe to the command topic
+      client.subscribe(MQTT_COMMAND_TOPIC);
+      Serial.print("Subscribed to topic: ");
+      Serial.println(MQTT_COMMAND_TOPIC);
+      
+      // Send initial STOP command to ensure rover is stationary
+      controlMotors("STOP");
+      client.publish(MQTT_STATUS_TOPIC, "STOP");
+    } else {
+      Serial.print("failed, rc=");
+      Serial.print(client.state()); // Print the reason for failure
+      Serial.println(" try again in 5 seconds");
+      // Wait 5 seconds before retrying
+      delay(5000);
+    }
+  }
+}
