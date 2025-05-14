@@ -6,6 +6,7 @@ const MQTT_PASSWORD = "Anakonda1#";
 const MQTT_COMMAND_TOPIC = "esp32/rover/command"; // Command topic
 const MQTT_STATUS_TOPIC = "esp32/rover/status"; // Status topic
 const MQTT_RADAR_TOPIC = "esp32/rover/radar"; // Radar data topic
+const MQTT_SELF_DESTRUCT_TOPIC = "esp32/rover/selfdestruct"; // Self-destruct topic
 
 // Create a random client ID for the browser session
 const MQTT_CLIENT_ID = "webClient_" + Math.random().toString(16).substr(2, 8);
@@ -19,6 +20,11 @@ const rightBtn = document.getElementById('rightBtn');
 const backwardBtn = document.getElementById('backwardBtn');
 const radarOnBtn = document.getElementById('radarOnBtn');
 const radarOffBtn = document.getElementById('radarOffBtn');
+
+// Self-destruct elements
+const selfDestructBtn = document.getElementById('selfDestructBtn');
+const abortBtn = document.getElementById('abortBtn');
+const countdownDisplay = document.getElementById('countdownDisplay');
 
 // Radar elements
 const radarScan = document.querySelector('.radar-scan');
@@ -34,6 +40,9 @@ let mqttClient = null;
 let isRadarEnabled = false;
 let radarData = {};
 let obstacles = {};
+let selfDestructActive = false;
+let countdownInterval = null;
+let currentCountdown = 10;
 
 // Command constants
 const COMMANDS = {
@@ -43,7 +52,9 @@ const COMMANDS = {
     RIGHT: "RIGHT",
     BACKWARD: "BACKWARD",
     RADAR_ON: "RADAR_ON",
-    RADAR_OFF: "RADAR_OFF"
+    RADAR_OFF: "RADAR_OFF",
+    SELF_DESTRUCT_START: "SELF_DESTRUCT_START",
+    SELF_DESTRUCT_ABORT: "SELF_DESTRUCT_ABORT"
 };
 
 // Wait for the page to fully load before connecting to MQTT
@@ -76,6 +87,9 @@ window.onload = function() {
     
     // Setup radar button events
     setupRadarControls();
+    
+    // Setup self-destruct button events
+    setupSelfDestructControls();
 };
 
 // Setup events for both mouse and touch interfaces with press and release handlers
@@ -110,6 +124,102 @@ function setupRadarControls() {
     
     // Default to radar off
     radarOffBtn.classList.add('pressed');
+}
+
+function setupSelfDestructControls() {
+    // Self-destruct button event
+    selfDestructBtn.addEventListener('click', function() {
+        if (!isConnected) return;
+        
+        if (!selfDestructActive) {
+            // Start self-destruct sequence
+            startSelfDestruct();
+        }
+    });
+    
+    // Abort button event
+    abortBtn.addEventListener('click', function() {
+        if (!isConnected) return;
+        
+        if (selfDestructActive) {
+            // Abort self-destruct sequence
+            abortSelfDestruct();
+        }
+    });
+}
+
+function startSelfDestruct() {
+    // Activate UI elements
+    selfDestructActive = true;
+    selfDestructBtn.classList.add('active');
+    countdownDisplay.classList.add('countdown-active');
+    
+    // Reset and display countdown
+    currentCountdown = 10;
+    updateCountdownDisplay();
+    
+    // Send self-destruct command to ESP32
+    sendSelfDestructCommand(COMMANDS.SELF_DESTRUCT_START);
+    
+    // Start countdown timer
+    countdownInterval = setInterval(function() {
+        currentCountdown--;
+        updateCountdownDisplay();
+        
+        if (currentCountdown <= 0) {
+            // Countdown finished
+            clearInterval(countdownInterval);
+            
+            // Reset UI after "explosion"
+            setTimeout(function() {
+                selfDestructActive = false;
+                selfDestructBtn.classList.remove('active');
+                countdownDisplay.classList.remove('countdown-active');
+                statusElement.textContent = "Self-destruct sequence completed";
+            }, 2000);
+        }
+    }, 1000);
+}
+
+function abortSelfDestruct() {
+    // Stop countdown
+    clearInterval(countdownInterval);
+    
+    // Reset UI elements
+    selfDestructActive = false;
+    selfDestructBtn.classList.remove('active');
+    countdownDisplay.classList.remove('countdown-active');
+    
+    // Send abort command to ESP32
+    sendSelfDestructCommand(COMMANDS.SELF_DESTRUCT_ABORT);
+    
+    // Update status
+    statusElement.textContent = "Self-destruct sequence aborted";
+}
+
+function updateCountdownDisplay() {
+    countdownDisplay.textContent = `T-${currentCountdown}`;
+}
+
+function sendSelfDestructCommand(command) {
+    if (!isConnected) {
+        console.error("Cannot send self-destruct command, not connected to MQTT broker.");
+        return;
+    }
+
+    console.log(`Sending self-destruct command: ${command} to topic ${MQTT_SELF_DESTRUCT_TOPIC}`);
+    const message = new Paho.MQTT.Message(command);
+    message.destinationName = MQTT_SELF_DESTRUCT_TOPIC;
+    message.qos = 1; // Higher QoS for critical commands
+    mqttClient.send(message);
+    
+    // If it's the start command, also send the current countdown value
+    if (command === COMMANDS.SELF_DESTRUCT_START) {
+        const countdownMsg = new Paho.MQTT.Message(currentCountdown.toString());
+        countdownMsg.destinationName = MQTT_SELF_DESTRUCT_TOPIC + "/countdown";
+        countdownMsg.qos = 1;
+        mqttClient.send(countdownMsg);
+    }
 }
 
 function setupButtonEventListeners(button, command) {
@@ -209,6 +319,10 @@ function onConnect() {
     // Subscribe to radar data topic
     mqttClient.subscribe(MQTT_RADAR_TOPIC);
     console.log(`Subscribed to ${MQTT_RADAR_TOPIC}`);
+    
+    // Subscribe to self-destruct response topic
+    mqttClient.subscribe(MQTT_SELF_DESTRUCT_TOPIC + "/status");
+    console.log(`Subscribed to ${MQTT_SELF_DESTRUCT_TOPIC}/status`);
 
     // Send STOP command initially to ensure rover is stationary
     sendCommand(COMMANDS.STOP);
@@ -242,6 +356,14 @@ function onConnectionLost(responseObject) {
 
         // Reset all buttons
         controlButtons.forEach(btn => btn.classList.remove('pressed'));
+        
+        // If self-destruct was active, abort it
+        if (selfDestructActive) {
+            clearInterval(countdownInterval);
+            selfDestructActive = false;
+            selfDestructBtn.classList.remove('active');
+            countdownDisplay.classList.remove('countdown-active');
+        }
     }
 }
 
@@ -272,6 +394,34 @@ function onMessageArrived(message) {
             updateRadarDisplay(radarData);
         } catch (e) {
             console.error("Error parsing radar data:", e);
+        }
+    } else if (message.destinationName === MQTT_SELF_DESTRUCT_TOPIC + "/status") {
+        // Process self-destruct status updates from ESP32
+        const status = message.payloadString;
+        
+        if (status === "INITIATED") {
+            statusElement.textContent = "Self-destruct sequence initiated";
+            statusElement.style.color = 'red';
+        } else if (status === "ABORTED") {
+            statusElement.textContent = "Self-destruct sequence aborted";
+            statusElement.style.color = 'green';
+            
+            // Reset UI if we receive abort confirmation
+            if (selfDestructActive) {
+                clearInterval(countdownInterval);
+                selfDestructActive = false;
+                selfDestructBtn.classList.remove('active');
+                countdownDisplay.classList.remove('countdown-active');
+            }
+        } else if (status === "COMPLETED") {
+            statusElement.textContent = "Self-destruct sequence completed";
+            statusElement.style.color = 'red';
+            
+            // Reset UI
+            clearInterval(countdownInterval);
+            selfDestructActive = false;
+            selfDestructBtn.classList.remove('active');
+            countdownDisplay.classList.remove('countdown-active');
         }
     }
 }
