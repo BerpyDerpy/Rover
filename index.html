@@ -203,6 +203,81 @@
             justify-content: center;
             gap: 10px;
         }
+
+        /* Self-destruct button styles */
+        .self-destruct-section {
+            margin-top: 20px;
+        }
+
+        .self-destruct-btn {
+            background-color: #ff3547;
+            color: white;
+            font-weight: bold;
+            padding: 15px 25px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-right: 10px;
+            box-shadow: 0 4px 8px rgba(255, 53, 71, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        .self-destruct-btn:hover {
+            background-color: #ff0a20;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(255, 53, 71, 0.4);
+        }
+
+        .self-destruct-btn:active, .self-destruct-btn.active {
+            background-color: #cc0000;
+            transform: translateY(1px);
+            box-shadow: 0 2px 4px rgba(255, 53, 71, 0.4);
+        }
+
+        .abort-btn {
+            background-color: #343a40;
+            color: white;
+            font-weight: bold;
+            padding: 15px 25px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            box-shadow: 0 4px 8px rgba(52, 58, 64, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        .abort-btn:hover {
+            background-color: #23272b;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(52, 58, 64, 0.4);
+        }
+
+        .abort-btn:active, .abort-btn.active {
+            background-color: #1d2124;
+            transform: translateY(1px);
+            box-shadow: 0 2px 4px rgba(52, 58, 64, 0.4);
+        }
+
+        .countdown-display {
+            font-size: 32px;
+            font-weight: bold;
+            color: #ff3547;
+            margin: 20px 0;
+            font-family: 'Courier New', monospace;
+            letter-spacing: 2px;
+            display: none;
+        }
+
+        .countdown-active {
+            display: block;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
     </style>
     <!-- Import Paho MQTT library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js" type="text/javascript"></script>
@@ -224,6 +299,16 @@
                 <button id="stopBtn" class="control-btn">BRAKE</button>
                 <button id="rightBtn" class="control-btn">RIGHT</button>
                 <button id="backwardBtn" class="control-btn">BACKWARD</button>
+            </div>
+
+            <!-- Self-destruct section -->
+            <div class="self-destruct-section">
+                <h2>Self-Destruct System</h2>
+                <div id="countdownDisplay" class="countdown-display">T-10</div>
+                <div>
+                    <button id="selfDestructBtn" class="self-destruct-btn">INITIATE SELF-DESTRUCT</button>
+                    <button id="abortBtn" class="abort-btn">ABORT</button>
+                </div>
             </div>
         </div>
         
