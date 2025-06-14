@@ -3,341 +3,304 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ESP32 Rover Control</title>
+    <title>Rover</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-            text-align: center;
-            touch-action: none; /* Prevent default touch actions on mobile */
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 0; 
+            padding: 20px; 
+            background: linear-gradient(135deg, #74b9ff, #0984e3);
+            min-height: 100vh;
         }
-        .container {
-            border: 1px solid #ddd;
-            border-radius: 10px;
-            padding: 20px;
-            margin-top: 20px;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        .container { 
+            max-width: 800px; 
+            margin: 0 auto; 
+            background: white; 
+            padding: 30px; 
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
         }
-        h1, h2 {
-            color: #333;
+        h1 { 
+            text-align: center; 
+            color: #333; 
+            margin-bottom: 30px;
         }
-        .controls {
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            grid-template-rows: 1fr 1fr 1fr;
-            gap: 10px;
-            margin: 20px auto;
-            width: 240px;
-            height: 240px;
-        }
-        .control-btn {
-            padding: 15px;
-            font-size: 16px;
-            cursor: pointer;
-            border: none;
-            border-radius: 5px;
-            background-color: #4CAF50;
-            color: white;
-            transition: background-color 0.2s, transform 0.1s;
-            user-select: none;
-            -webkit-user-select: none;
-        }
-        .control-btn:active, .control-btn.pressed {
-            background-color: #3e8e41;
-            transform: scale(0.98);
-        }
-        .control-btn:hover {
-            opacity: 0.9;
-        }
-        #forwardBtn {
-            grid-column: 2;
-            grid-row: 1;
-        }
-        #leftBtn {
-            grid-column: 1;
-            grid-row: 2;
-        }
-        #stopBtn {
-            grid-column: 2;
-            grid-row: 2;
-            background-color: #f44336;
-        }
-        #stopBtn:active, #stopBtn.pressed {
-            background-color: #d32f2f;
-        }
-        #rightBtn {
-            grid-column: 3;
-            grid-row: 2;
-        }
-        #backwardBtn {
-            grid-column: 2;
-            grid-row: 3;
-        }
-        #status {
-            margin-top: 20px;
-            padding: 10px;
-            border-radius: 5px;
-            background-color: #f5f5f5;
-            font-weight: bold;
-        }
-        .status-container {
-            margin-top: 20px;
-        }
-        
-        /* Radar display styles */
-        .dashboard {
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-        }
-        
-        @media (min-width: 768px) {
-            .dashboard {
-                flex-direction: row;
-            }
-            
-            .control-section, .radar-section {
-                flex: 1;
-            }
-        }
-        
-        .radar-container {
-            position: relative;
-            width: 300px;
-            height: 300px;
-            margin: 0 auto;
-            background-color: #f0f0f0;
-            border-radius: 50%;
-            overflow: hidden;
-            border: 2px solid #ddd;
-        }
-        
-        .radar-scan {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            clip-path: polygon(50% 50%, 50% 0%, 100% 0%, 100% 50%);
-            background: radial-gradient(circle, rgba(76, 175, 80, 0.1) 0%, rgba(76, 175, 80, 0.3) 100%);
-            transform-origin: bottom left;
-            transform: rotate(0deg);
-            transition: transform 0.3s ease;
-        }
-        
-        .radar-center {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            width: 10px;
-            height: 10px;
-            background-color: #4CAF50;
-            border-radius: 50%;
-            transform: translate(-50%, -50%);
-        }
-        
-        .radar-grid {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            border-radius: 50%;
-        }
-        
-        .radar-circle {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            border: 1px dashed #999;
-            border-radius: 50%;
-            transform: translate(-50%, -50%);
-        }
-        
-        .radar-circle-1 {
-            width: 33%;
-            height: 33%;
-        }
-        
-        .radar-circle-2 {
-            width: 66%;
-            height: 66%;
-        }
-        
-        .radar-circle-3 {
-            width: 100%;
-            height: 100%;
-        }
-        
-        .radar-line {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            width: 50%;
-            height: 1px;
-            background-color: #999;
-            transform-origin: left center;
-        }
-        
-        .obstacle {
-            position: absolute;
-            width: 10px;
-            height: 10px;
-            background-color: red;
-            border-radius: 50%;
-            transform: translate(-50%, -50%);
-            transition: all 0.3s ease;
-        }
-        
-        .radar-distance {
-            position: absolute;
-            font-size: 10px;
-            color: #666;
-        }
-        
-        .radar-controls {
-            margin-top: 15px;
-            display: flex;
-            justify-content: center;
-            gap: 10px;
-        }
-
-        /* Self-destruct button styles */
-        .self-destruct-section {
-            margin-top: 20px;
-        }
-
-        .self-destruct-btn {
-            background-color: #ff3547;
-            color: white;
-            font-weight: bold;
-            padding: 15px 25px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            margin-right: 10px;
-            box-shadow: 0 4px 8px rgba(255, 53, 71, 0.3);
-            transition: all 0.3s ease;
-        }
-
-        .self-destruct-btn:hover {
-            background-color: #ff0a20;
-            transform: translateY(-2px);
-            box-shadow: 0 6px 12px rgba(255, 53, 71, 0.4);
-        }
-
-        .self-destruct-btn:active, .self-destruct-btn.active {
-            background-color: #cc0000;
-            transform: translateY(1px);
-            box-shadow: 0 2px 4px rgba(255, 53, 71, 0.4);
-        }
-
-        .abort-btn {
-            background-color: #343a40;
-            color: white;
-            font-weight: bold;
-            padding: 15px 25px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            box-shadow: 0 4px 8px rgba(52, 58, 64, 0.3);
-            transition: all 0.3s ease;
-        }
-
-        .abort-btn:hover {
-            background-color: #23272b;
-            transform: translateY(-2px);
-            box-shadow: 0 6px 12px rgba(52, 58, 64, 0.4);
-        }
-
-        .abort-btn:active, .abort-btn.active {
-            background-color: #1d2124;
-            transform: translateY(1px);
-            box-shadow: 0 2px 4px rgba(52, 58, 64, 0.4);
-        }
-
-        .countdown-display {
-            font-size: 32px;
-            font-weight: bold;
-            color: #ff3547;
+        .input-group {
             margin: 20px 0;
-            font-family: 'Courier New', monospace;
-            letter-spacing: 2px;
+            text-align: center;
+        }
+        .input-group label {
+            display: block;
+            margin-bottom: 10px;
+            font-weight: bold;
+            color: #555;
+        }
+        .input-group input {
+            width: 100%;
+            max-width: 500px;
+            padding: 12px;
+            font-size: 16px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            box-sizing: border-box;
+        }
+        button {
+            background: #00b894;
+            color: white;
+            padding: 12px 30px;
+            font-size: 16px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 10px 5px;
+        }
+        button:hover { background: #00a085; }
+        button:disabled { 
+            background: #ccc; 
+            cursor: not-allowed; 
+        }
+        .status {
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            margin: 20px 0;
+            font-weight: bold;
+        }
+        .status.connected { 
+            background: #d1f2eb; 
+            color: #00b894; 
+            border: 2px solid #00b894;
+        }
+        .status.disconnected { 
+            background: #fadbd8; 
+            color: #e74c3c; 
+            border: 2px solid #e74c3c;
+        }
+        .camera-container {
+            text-align: center;
+            margin: 20px 0;
             display: none;
         }
-
-        .countdown-active {
-            display: block;
-            animation: pulse 1s infinite;
+        .camera-feed {
+            max-width: 100%;
+            border: 3px solid #333;
+            border-radius: 10px;
         }
-
-        @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.5; }
-            100% { opacity: 1; }
+        .instructions {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        .instructions h3 {
+            color: #333;
+            margin-top: 0;
+        }
+        .instructions ol {
+            text-align: left;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .instructions li {
+            margin: 10px 0;
+            line-height: 1.5;
         }
     </style>
-    <!-- Import Paho MQTT library -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js" type="text/javascript"></script>
 </head>
 <body>
-    <h1>ESP32 Rover Dashboard</h1>
-    
-    <div class="dashboard">
-        <div class="control-section container">
-            <h2>Rover Control</h2>
-            
-            <div class="status-container">
-                <div id="status">Connecting to MQTT Broker...</div>
-            </div>
-            
-            <div class="controls">
-                <button id="forwardBtn" class="control-btn">FORWARD</button>
-                <button id="leftBtn" class="control-btn">LEFT</button>
-                <button id="stopBtn" class="control-btn">BRAKE</button>
-                <button id="rightBtn" class="control-btn">RIGHT</button>
-                <button id="backwardBtn" class="control-btn">BACKWARD</button>
-            </div>
-
-            <!-- Self-destruct section -->
-            <div class="self-destruct-section">
-                <h2>Self-Destruct System</h2>
-                <div id="countdownDisplay" class="countdown-display">T-10</div>
-                <div>
-                    <button id="selfDestructBtn" class="self-destruct-btn">INITIATE SELF-DESTRUCT</button>
-                    <button id="abortBtn" class="abort-btn">ABORT</button>
-                </div>
-            </div>
+    <div class="container">
+        <h1>Rover Dashboard</h1>
+        
+        <div class="instructions">
+            <h3>📋 How to Connect:</h3>
+            <ol>
+                <li><strong>Find Raspberry Pi Connect URL:</strong> Go to https://connect.raspberrypi.com and find your Pi</li>
+                <li><strong>Copy the URL:</strong> It looks like https://connect.raspberrypi.com/abc123def456</li>
+                <li><strong>Add :5000 to the end:</strong> So it becomes https://connect.raspberrypi.com/abc123def456:5000</li>
+                <li><strong>Paste it below and click Connect!</strong></li>
+            </ol>
         </div>
         
-        <div class="radar-section container">
-            <h2>Radar Display</h2>
-            <div class="radar-container">
-                <div class="radar-grid">
-                    <div class="radar-circle radar-circle-1"></div>
-                    <div class="radar-circle radar-circle-2"></div>
-                    <div class="radar-circle radar-circle-3"></div>
-                    <div class="radar-line" style="transform: rotate(0deg)"></div>
-                    <div class="radar-line" style="transform: rotate(45deg)"></div>
-                    <div class="radar-line" style="transform: rotate(90deg)"></div>
-                    <div class="radar-line" style="transform: rotate(135deg)"></div>
-                </div>
-                <div class="radar-scan"></div>
-                <div class="radar-center"></div>
-                <!-- Obstacles will be added dynamically -->
-                <div class="radar-distance radar-distance-1" style="top: 33%; left: 51%;">100cm</div>
-                <div class="radar-distance radar-distance-2" style="top: 16%; left: 51%;">200cm</div>
-                <div class="radar-distance radar-distance-3" style="top: 0%; left: 51%;">300cm</div>
-            </div>
-            <div class="radar-controls">
-                <button id="radarOnBtn" class="control-btn">RADAR ON</button>
-                <button id="radarOffBtn" class="control-btn">RADAR OFF</button>
-            </div>
+        <div class="input-group">
+            <label for="roverUrl">🔗 Rover Camera URL:</label>
+            <input type="text" 
+                   id="roverUrl" 
+                   placeholder="https://connect.raspberrypi.com/your-device-id:5000"
+                   value="">
+        </div>
+        
+        <div style="text-align: center;">
+            <button onclick="connectToRover()">🚀 Connect to Rover</button>
+            <button onclick="disconnectFromRover()" id="disconnectBtn" disabled>🔌 Disconnect</button>
+        </div>
+        
+        <div id="status" class="status disconnected">
+            🔴 Not connected - Enter rover URL above and click Connect
+        </div>
+        
+        <div id="cameraContainer" class="camera-container">
+            <h3>📹 Live Camera Feed:</h3>
+            <img id="cameraFeed" class="camera-feed" alt="Camera feed will appear here">
+            <br><br>
+            <button onclick="refreshCamera()">🔄 Refresh Camera</button>
+            <button onclick="checkRoverStatus()">📊 Check Rover Status</button>
+        </div>
+        
+        <div class="instructions" style="margin-top: 30px;">
+            <h3>💡 Troubleshooting Tips:</h3>
+            <ul style="text-align: left; max-width: 600px; margin: 0 auto;">
+                <li>Make sure your Raspberry Pi is turned on and connected to the internet</li>
+                <li>Check that the camera server is running on your Pi</li>
+                <li>Verify your Raspberry Pi Connect URL is correct</li>
+                <li>Try refreshing the page if the connection fails</li>
+                <li>The camera may take a few seconds to load the first time</li>
+            </ul>
         </div>
     </div>
 
-    <script src="script.js"></script>
+    <script>
+        let roverUrl = '';
+        let connected = false;
+
+        // Function to connect to the rover
+        function connectToRover() {
+            const urlInput = document.getElementById('roverUrl');
+            const url = urlInput.value.trim();
+            
+            // Check if URL is entered
+            if (!url) {
+                alert('⚠️ Please enter your rover camera URL first!');
+                return;
+            }
+            
+            // Clean up the URL (remove trailing slash if present)
+            roverUrl = url.endsWith('/') ? url.slice(0, -1) : url;
+            
+            // Update status to "connecting"
+            updateStatus('🟡 Connecting to rover...', 'disconnected');
+            
+            // Try to connect by testing the status endpoint
+            testConnection();
+        }
+        
+        // Function to test if we can connect to the rover
+        async function testConnection() {
+            try {
+                // Try to get status from the rover
+                const response = await fetch(roverUrl + '/status');
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    // Success! We can connect
+                    connected = true;
+                    updateStatus('🟢 Connected to rover successfully!', 'connected');
+                    showCamera();
+                    document.getElementById('disconnectBtn').disabled = false;
+                } else {
+                    throw new Error('Cannot reach rover');
+                }
+            } catch (error) {
+                // Connection failed
+                connected = false;
+                updateStatus('🔴 Connection failed - Check your URL and try again', 'disconnected');
+                hideCamera();
+                console.log('Connection error:', error);
+            }
+        }
+        
+        // Function to disconnect from rover
+        function disconnectFromRover() {
+            connected = false;
+            roverUrl = '';
+            updateStatus('🔴 Disconnected from rover', 'disconnected');
+            hideCamera();
+            document.getElementById('disconnectBtn').disabled = true;
+            document.getElementById('roverUrl').value = '';
+        }
+        
+        // Function to update the status message
+        function updateStatus(message, type) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.textContent = message;
+            statusDiv.className = 'status ' + type;
+        }
+        
+        // Function to show the camera feed
+        function showCamera() {
+            const cameraContainer = document.getElementById('cameraContainer');
+            const cameraFeed = document.getElementById('cameraFeed');
+            
+            // Set the camera feed URL
+            cameraFeed.src = roverUrl + '/video_feed';
+            
+            // Show the camera container
+            cameraContainer.style.display = 'block';
+            
+            // Handle camera loading errors
+            cameraFeed.onerror = function() {
+                updateStatus('🔴 Camera feed unavailable - Try refreshing', 'disconnected');
+            };
+        }
+        
+        // Function to hide the camera feed
+        function hideCamera() {
+            const cameraContainer = document.getElementById('cameraContainer');
+            cameraContainer.style.display = 'none';
+        }
+        
+        // Function to refresh the camera feed
+        function refreshCamera() {
+            if (!connected) {
+                alert('⚠️ Please connect to your rover first!');
+                return;
+            }
+            
+            const cameraFeed = document.getElementById('cameraFeed');
+            // Add timestamp to force refresh
+            cameraFeed.src = roverUrl + '/video_feed?' + new Date().getTime();
+            updateStatus('🔄 Refreshing camera feed...', 'connected');
+            
+            // Update status back after a moment
+            setTimeout(() => {
+                updateStatus('🟢 Connected to rover', 'connected');
+            }, 2000);
+        }
+        
+        // Function to check rover status
+        async function checkRoverStatus() {
+            if (!connected) {
+                alert('⚠️ Please connect to your rover first!');
+                return;
+            }
+            
+            try {
+                const response = await fetch(roverUrl + '/status');
+                const data = await response.json();
+                
+                alert(`📊 Rover Status:\n\n` +
+                      `Camera: ${data.camera}\n` +
+                      `Time: ${data.time}\n` +
+                      `Message: ${data.message}`);
+                      
+                updateStatus('🟢 Status check complete - Rover is working!', 'connected');
+            } catch (error) {
+                alert('❌ Could not get rover status. Check your connection.');
+                updateStatus('🔴 Status check failed', 'disconnected');
+            }
+        }
+        
+        // Auto-save the URL when typing (so user doesn't lose it)
+        document.getElementById('roverUrl').addEventListener('input', function(e) {
+            localStorage.setItem('savedRoverUrl', e.target.value);
+        });
+        
+        // Load saved URL when page loads
+        window.addEventListener('load', function() {
+            const savedUrl = localStorage.getItem('savedRoverUrl');
+            if (savedUrl) {
+                document.getElementById('roverUrl').value = savedUrl;
+            }
+        });
+    </script>
 </body>
 </html>
