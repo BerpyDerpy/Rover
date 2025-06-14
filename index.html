@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rover</title>
+    <title>Rover Dashboard</title>
     <style>
         body { 
             font-family: Arial, sans-serif; 
@@ -105,32 +105,54 @@
             margin: 10px 0;
             line-height: 1.5;
         }
+        .url-examples {
+            background: #e8f4f8;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        .url-examples .example {
+            margin: 5px 0;
+            padding: 5px;
+            background: white;
+            border-radius: 4px;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Rover Dashboard</h1>
+        <h1> Rover Dashboard</h1>
         
         <div class="instructions">
             <h3>📋 How to Connect:</h3>
             <ol>
-                <li><strong>Find Raspberry Pi Connect URL:</strong> Go to https://connect.raspberrypi.com and find your Pi</li>
-                <li><strong>Copy the URL:</strong> It looks like https://connect.raspberrypi.com/abc123def456</li>
-                <li><strong>Add :5000 to the end:</strong> So it becomes https://connect.raspberrypi.com/abc123def456:5000</li>
-                <li><strong>Paste it below and click Connect!</strong></li>
+                <li><strong>Go to Raspberry Pi Connect:</strong> Visit https://connect.raspberrypi.com</li>
+                <li><strong>Find your Pi and click it</strong> (it should show as online)</li>
+                <li><strong>Copy the URL from your browser</strong> when you're connected to your Pi</li>
+                <li><strong>Add :5000 to the end</strong> and paste it below</li>
             </ol>
+            
+            <div class="url-examples">
+                <strong>📝 URL Examples (yours will be different):</strong><br>
+                <div class="example">❌ What you have: https://connect.raspberrypi.com/devices/abc123</div>
+                <div class="example">✅ What you need: https://connect.raspberrypi.com/devices/abc123:5000</div>
+                <div class="example">✅ Alternative format: https://abc123.connect.raspberrypi.com:5000</div>
+            </div>
         </div>
         
         <div class="input-group">
             <label for="roverUrl">🔗 Rover Camera URL:</label>
             <input type="text" 
                    id="roverUrl" 
-                   placeholder="https://connect.raspberrypi.com/your-device-id:5000"
+                   placeholder="https://connect.raspberrypi.com/devices/your-device-id:5000"
                    value="">
         </div>
         
         <div style="text-align: center;">
             <button onclick="connectToRover()">🚀 Connect to Rover</button>
+            <button onclick="testUrl()">🧪 Test URL</button>
             <button onclick="disconnectFromRover()" id="disconnectBtn" disabled>🔌 Disconnect</button>
         </div>
         
@@ -149,11 +171,12 @@
         <div class="instructions" style="margin-top: 30px;">
             <h3>💡 Troubleshooting Tips:</h3>
             <ul style="text-align: left; max-width: 600px; margin: 0 auto;">
-                <li>Make sure your Raspberry Pi is turned on and connected to the internet</li>
-                <li>Check that the camera server is running on your Pi</li>
-                <li>Verify your Raspberry Pi Connect URL is correct</li>
-                <li>Try refreshing the page if the connection fails</li>
-                <li>The camera may take a few seconds to load the first time</li>
+                <li><strong>Make sure :5000 is at the end</strong> of your URL</li>
+                <li><strong>Camera server must be running</strong> on your Pi: <code>python3 ~/camera_server.py</code></li>
+                <li><strong>Pi must be online</strong> in Raspberry Pi Connect</li>
+                <li><strong>Try the "Test URL" button</strong> to check if your URL format is correct</li>
+                <li><strong>Browser security:</strong> Some browsers block mixed content (HTTPS to HTTP)</li>
+                <li><strong>Wait 10-15 seconds</strong> for the camera to load the first time</li>
             </ul>
         </div>
     </div>
@@ -173,21 +196,73 @@
                 return;
             }
             
+            // Validate URL format
+            if (!url.includes(':5000')) {
+                alert('⚠️ URL must end with :5000\n\nExample: https://connect.raspberrypi.com/devices/your-id:5000');
+                return;
+            }
+            
             // Clean up the URL (remove trailing slash if present)
             roverUrl = url.endsWith('/') ? url.slice(0, -1) : url;
             
             // Update status to "connecting"
-            updateStatus('🟡 Connecting to rover...', 'disconnected');
+            updateStatus('🟡 Connecting to rover... (this may take 10-15 seconds)', 'disconnected');
             
             // Try to connect by testing the status endpoint
             testConnection();
         }
         
+        // Function to test URL format without connecting
+        function testUrl() {
+            const urlInput = document.getElementById('roverUrl');
+            const url = urlInput.value.trim();
+            
+            if (!url) {
+                alert('⚠️ Please enter a URL first!');
+                return;
+            }
+            
+            let message = '🧪 URL Test Results:\n\n';
+            
+            if (url.includes('connect.raspberrypi.com')) {
+                message += '✅ Contains Raspberry Pi Connect domain\n';
+            } else {
+                message += '❌ Doesn\'t contain connect.raspberrypi.com\n';
+            }
+            
+            if (url.includes(':5000')) {
+                message += '✅ Contains port :5000\n';
+            } else {
+                message += '❌ Missing port :5000 at the end\n';
+            }
+            
+            if (url.startsWith('https://')) {
+                message += '✅ Uses HTTPS protocol\n';
+            } else {
+                message += '❌ Should start with https://\n';
+            }
+            
+            message += '\n' + (url.includes(':5000') && url.includes('connect.raspberrypi.com') && url.startsWith('https://') 
+                ? '🎉 URL format looks good! Try connecting.' 
+                : '⚠️ URL needs corrections. See examples above.');
+            
+            alert(message);
+        }
+        
         // Function to test if we can connect to the rover
         async function testConnection() {
             try {
+                // Add timeout to prevent hanging
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+                
                 // Try to get status from the rover
-                const response = await fetch(roverUrl + '/status');
+                const response = await fetch(roverUrl + '/status', {
+                    signal: controller.signal,
+                    mode: 'cors'
+                });
+                
+                clearTimeout(timeoutId);
                 
                 if (response.ok) {
                     const data = await response.json();
@@ -197,12 +272,24 @@
                     showCamera();
                     document.getElementById('disconnectBtn').disabled = false;
                 } else {
-                    throw new Error('Cannot reach rover');
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 }
             } catch (error) {
                 // Connection failed
                 connected = false;
-                updateStatus('🔴 Connection failed - Check your URL and try again', 'disconnected');
+                let errorMessage = '🔴 Connection failed: ';
+                
+                if (error.name === 'AbortError') {
+                    errorMessage += 'Connection timeout. Check if camera server is running.';
+                } else if (error.message.includes('CORS')) {
+                    errorMessage += 'Browser security blocked the request. Try a different browser.';
+                } else if (error.message.includes('NetworkError')) {
+                    errorMessage += 'Network error. Check your URL and internet connection.';
+                } else {
+                    errorMessage += error.message;
+                }
+                
+                updateStatus(errorMessage, 'disconnected');
                 hideCamera();
                 console.log('Connection error:', error);
             }
@@ -215,7 +302,6 @@
             updateStatus('🔴 Disconnected from rover', 'disconnected');
             hideCamera();
             document.getElementById('disconnectBtn').disabled = true;
-            document.getElementById('roverUrl').value = '';
         }
         
         // Function to update the status message
@@ -238,7 +324,12 @@
             
             // Handle camera loading errors
             cameraFeed.onerror = function() {
-                updateStatus('🔴 Camera feed unavailable - Try refreshing', 'disconnected');
+                updateStatus('🔴 Camera feed unavailable - Server may be offline', 'disconnected');
+            };
+            
+            // Handle successful camera load
+            cameraFeed.onload = function() {
+                updateStatus('🟢 Camera feed loaded successfully!', 'connected');
             };
         }
         
@@ -259,11 +350,6 @@
             // Add timestamp to force refresh
             cameraFeed.src = roverUrl + '/video_feed?' + new Date().getTime();
             updateStatus('🔄 Refreshing camera feed...', 'connected');
-            
-            // Update status back after a moment
-            setTimeout(() => {
-                updateStatus('🟢 Connected to rover', 'connected');
-            }, 2000);
         }
         
         // Function to check rover status
