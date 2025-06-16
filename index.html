@@ -95,17 +95,6 @@
             border-radius: 4px;
             word-break: break-all;
         }
-        .instructions {
-            background: #e8f4f8;
-            padding: 20px;
-            border-radius: 10px;
-            margin: 20px 0;
-            text-align: center;
-        }
-        .instructions h3 {
-            color: #333;
-            margin-top: 0;
-        }
         .control-buttons {
             text-align: center;
             margin: 20px 0;
@@ -114,7 +103,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>🚜 Rover Dashboard</h1>
+        <h1>Rover Dashboard</h1>
         
         <div class="url-display">
             <div class="label">📡 Rover URL:</div>
@@ -137,18 +126,10 @@
             <button onclick="refreshCamera()">🔄 Refresh Camera</button>
             <button onclick="checkRoverStatus()">📊 Check Rover Status</button>
         </div>
-        
-        <div class="instructions">
-            <h3>📋 Setup Instructions:</h3>
-            <p><strong>Step 1:</strong> Set up remote.it on your Raspberry Pi</p>
-            <p><strong>Step 2:</strong> Get your remote.it URL and update it in the code</p>
-            <p><strong>Step 3:</strong> Make sure your camera server is running: <code>python3 ~/camera_server.py</code></p>
-            <p><strong>Step 4:</strong> Click "Connect to Rover" above!</p>
-        </div>
     </div>
 
     <script>
-        const ROVER_URL = 'https://0fab5bd5c200c2c0.p171.r3proxy.com'; //https://9d96c6977d64f2c2.p60.rt3.io
+        const ROVER_URL = 'https://beeeae8902d6d62f.p60.rt3.io';
         let connected = false;
 
         // Update the displayed URL
