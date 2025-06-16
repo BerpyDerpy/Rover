@@ -25,25 +25,6 @@
             color: #333; 
             margin-bottom: 30px;
         }
-        .input-group {
-            margin: 20px 0;
-            text-align: center;
-        }
-        .input-group label {
-            display: block;
-            margin-bottom: 10px;
-            font-weight: bold;
-            color: #555;
-        }
-        .input-group input {
-            width: 100%;
-            max-width: 500px;
-            padding: 12px;
-            font-size: 16px;
-            border: 2px solid #ddd;
-            border-radius: 8px;
-            box-sizing: border-box;
-        }
         button {
             background: #00b894;
             color: white;
@@ -76,6 +57,11 @@
             color: #e74c3c; 
             border: 2px solid #e74c3c;
         }
+        .status.connecting { 
+            background: #fff3cd; 
+            color: #856404; 
+            border: 2px solid #ffc107;
+        }
         .camera-container {
             text-align: center;
             margin: 20px 0;
@@ -83,81 +69,65 @@
         }
         .camera-feed {
             max-width: 100%;
+            max-height: 500px;
             border: 3px solid #333;
             border-radius: 10px;
         }
-        .instructions {
+        .url-display {
             background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            font-family: monospace;
+            font-size: 14px;
+            text-align: center;
+            border: 2px solid #dee2e6;
+        }
+        .url-display .label {
+            font-weight: bold;
+            color: #495057;
+            margin-bottom: 5px;
+        }
+        .url-display .url {
+            color: #0984e3;
+            background: white;
+            padding: 8px;
+            border-radius: 4px;
+            word-break: break-all;
+        }
+        .instructions {
+            background: #e8f4f8;
             padding: 20px;
             border-radius: 10px;
             margin: 20px 0;
+            text-align: center;
         }
         .instructions h3 {
             color: #333;
             margin-top: 0;
         }
-        .instructions ol {
-            text-align: left;
-            max-width: 600px;
-            margin: 0 auto;
-        }
-        .instructions li {
-            margin: 10px 0;
-            line-height: 1.5;
-        }
-        .url-examples {
-            background: #e8f4f8;
-            padding: 15px;
-            border-radius: 8px;
-            margin: 15px 0;
-            font-family: monospace;
-            font-size: 14px;
-        }
-        .url-examples .example {
-            margin: 5px 0;
-            padding: 5px;
-            background: white;
-            border-radius: 4px;
+        .control-buttons {
+            text-align: center;
+            margin: 20px 0;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1> Rover Dashboard</h1>
+        <h1>🚜 Rover Dashboard</h1>
         
-        <div class="instructions">
-            <h3>📋 How to Connect:</h3>
-            <ol>
-                <li><strong>Go to Raspberry Pi Connect:</strong> Visit https://connect.raspberrypi.com</li>
-                <li><strong>Find your Pi and click it</strong> (it should show as online)</li>
-                <li><strong>Copy the URL from your browser</strong> when you're connected to your Pi</li>
-                <li><strong>Add :5000 to the end</strong> and paste it below</li>
-            </ol>
-            
-            <div class="url-examples">
-                <strong>📝 URL Examples (yours will be different):</strong><br>
-                <div class="example">❌ What you have: https://connect.raspberrypi.com/devices/abc123</div>
-                <div class="example">✅ What you need: https://connect.raspberrypi.com/devices/abc123:5000</div>
-                <div class="example">✅ Alternative format: https://abc123.connect.raspberrypi.com:5000</div>
-            </div>
+        <div class="url-display">
+            <div class="label">📡 Rover URL:</div>
+            <div class="url" id="currentUrl">Connecting to remote.it...</div>
         </div>
         
-        <div class="input-group">
-            <label for="roverUrl">🔗 Rover Camera URL:</label>
-            <input type="text" 
-                   id="roverUrl" 
-                   placeholder="https://connect.raspberrypi.com/devices/your-device-id:5000"
-                   value="">
-        </div>
-        
-        <div style="text-align: center;">
-            <button onclick="connectToRover()">🚀 Connect to Rover</button>
-            <button onclick="testUrl()">🧪 Test URL</button>
+        <div class="control-buttons">
+            <button onclick="connectToRover()" id="connectBtn">🚀 Connect to Rover</button>
             <button onclick="disconnectFromRover()" id="disconnectBtn" disabled>🔌 Disconnect</button>
         </div>
         
         <div id="status" class="status disconnected">
-            🔴 Not connected - Enter rover URL above and click Connect
+            🔴 Ready to connect
         </div>
         
         <div id="cameraContainer" class="camera-container">
@@ -168,85 +138,32 @@
             <button onclick="checkRoverStatus()">📊 Check Rover Status</button>
         </div>
         
-        <div class="instructions" style="margin-top: 30px;">
-            <h3>💡 Troubleshooting Tips:</h3>
-            <ul style="text-align: left; max-width: 600px; margin: 0 auto;">
-                <li><strong>Make sure :5000 is at the end</strong> of your URL</li>
-                <li><strong>Camera server must be running</strong> on your Pi: <code>python3 ~/camera_server.py</code></li>
-                <li><strong>Pi must be online</strong> in Raspberry Pi Connect</li>
-                <li><strong>Try the "Test URL" button</strong> to check if your URL format is correct</li>
-                <li><strong>Browser security:</strong> Some browsers block mixed content (HTTPS to HTTP)</li>
-                <li><strong>Wait 10-15 seconds</strong> for the camera to load the first time</li>
-            </ul>
+        <div class="instructions">
+            <h3>📋 Setup Instructions:</h3>
+            <p><strong>Step 1:</strong> Set up remote.it on your Raspberry Pi</p>
+            <p><strong>Step 2:</strong> Get your remote.it URL and update it in the code</p>
+            <p><strong>Step 3:</strong> Make sure your camera server is running: <code>python3 ~/camera_server.py</code></p>
+            <p><strong>Step 4:</strong> Click "Connect to Rover" above!</p>
         </div>
     </div>
 
     <script>
-        let roverUrl = '';
+        const ROVER_URL = 'https://9d96c6977d64f2c2.p60.rt3.io';
+        
         let connected = false;
+
+        // Update the displayed URL
+        document.getElementById('currentUrl').textContent = ROVER_URL;
 
         // Function to connect to the rover
         function connectToRover() {
-            const urlInput = document.getElementById('roverUrl');
-            const url = urlInput.value.trim();
-            
-            // Check if URL is entered
-            if (!url) {
-                alert('⚠️ Please enter your rover camera URL first!');
-                return;
-            }
-            
-            // Validate URL format
-            if (!url.includes(':5000')) {
-                alert('⚠️ URL must end with :5000\n\nExample: https://connect.raspberrypi.com/devices/your-id:5000');
-                return;
-            }
-            
-            // Clean up the URL (remove trailing slash if present)
-            roverUrl = url.endsWith('/') ? url.slice(0, -1) : url;
             
             // Update status to "connecting"
-            updateStatus('🟡 Connecting to rover... (this may take 10-15 seconds)', 'disconnected');
+            updateStatus('🟡 Connecting to rover... (this may take 10-15 seconds)', 'connecting');
+            document.getElementById('connectBtn').disabled = true;
             
-            // Try to connect by testing the status endpoint
+            // Try to connect
             testConnection();
-        }
-        
-        // Function to test URL format without connecting
-        function testUrl() {
-            const urlInput = document.getElementById('roverUrl');
-            const url = urlInput.value.trim();
-            
-            if (!url) {
-                alert('⚠️ Please enter a URL first!');
-                return;
-            }
-            
-            let message = '🧪 URL Test Results:\n\n';
-            
-            if (url.includes('connect.raspberrypi.com')) {
-                message += '✅ Contains Raspberry Pi Connect domain\n';
-            } else {
-                message += '❌ Doesn\'t contain connect.raspberrypi.com\n';
-            }
-            
-            if (url.includes(':5000')) {
-                message += '✅ Contains port :5000\n';
-            } else {
-                message += '❌ Missing port :5000 at the end\n';
-            }
-            
-            if (url.startsWith('https://')) {
-                message += '✅ Uses HTTPS protocol\n';
-            } else {
-                message += '❌ Should start with https://\n';
-            }
-            
-            message += '\n' + (url.includes(':5000') && url.includes('connect.raspberrypi.com') && url.startsWith('https://') 
-                ? '🎉 URL format looks good! Try connecting.' 
-                : '⚠️ URL needs corrections. See examples above.');
-            
-            alert(message);
         }
         
         // Function to test if we can connect to the rover
@@ -257,7 +174,7 @@
                 const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
                 
                 // Try to get status from the rover
-                const response = await fetch(roverUrl + '/status', {
+                const response = await fetch(ROVER_URL + '/status', {
                     signal: controller.signal,
                     mode: 'cors'
                 });
@@ -282,15 +199,16 @@
                 if (error.name === 'AbortError') {
                     errorMessage += 'Connection timeout. Check if camera server is running.';
                 } else if (error.message.includes('CORS')) {
-                    errorMessage += 'Browser security blocked the request. Try a different browser.';
-                } else if (error.message.includes('NetworkError')) {
-                    errorMessage += 'Network error. Check your URL and internet connection.';
+                    errorMessage += 'Browser security blocked the request.';
+                } else if (error.message.includes('NetworkError') || error.message.includes('Failed to fetch')) {
+                    errorMessage += 'Network error. Check if remote.it URL is correct and rover is online.';
                 } else {
                     errorMessage += error.message;
                 }
                 
                 updateStatus(errorMessage, 'disconnected');
                 hideCamera();
+                document.getElementById('connectBtn').disabled = false;
                 console.log('Connection error:', error);
             }
         }
@@ -298,10 +216,10 @@
         // Function to disconnect from rover
         function disconnectFromRover() {
             connected = false;
-            roverUrl = '';
             updateStatus('🔴 Disconnected from rover', 'disconnected');
             hideCamera();
             document.getElementById('disconnectBtn').disabled = true;
+            document.getElementById('connectBtn').disabled = false;
         }
         
         // Function to update the status message
@@ -317,14 +235,14 @@
             const cameraFeed = document.getElementById('cameraFeed');
             
             // Set the camera feed URL
-            cameraFeed.src = roverUrl + '/video_feed';
+            cameraFeed.src = ROVER_URL + '/video_feed';
             
             // Show the camera container
             cameraContainer.style.display = 'block';
             
             // Handle camera loading errors
             cameraFeed.onerror = function() {
-                updateStatus('🔴 Camera feed unavailable - Server may be offline', 'disconnected');
+                updateStatus('🔴 Camera feed unavailable - Check if camera server is running', 'disconnected');
             };
             
             // Handle successful camera load
@@ -348,7 +266,7 @@
             
             const cameraFeed = document.getElementById('cameraFeed');
             // Add timestamp to force refresh
-            cameraFeed.src = roverUrl + '/video_feed?' + new Date().getTime();
+            cameraFeed.src = ROVER_URL + '/video_feed?' + new Date().getTime();
             updateStatus('🔄 Refreshing camera feed...', 'connected');
         }
         
@@ -360,7 +278,7 @@
             }
             
             try {
-                const response = await fetch(roverUrl + '/status');
+                const response = await fetch(ROVER_URL + '/status');
                 const data = await response.json();
                 
                 alert(`📊 Rover Status:\n\n` +
@@ -375,16 +293,11 @@
             }
         }
         
-        // Auto-save the URL when typing (so user doesn't lose it)
-        document.getElementById('roverUrl').addEventListener('input', function(e) {
-            localStorage.setItem('savedRoverUrl', e.target.value);
-        });
-        
-        // Load saved URL when page loads
+        // Auto-connect on page load if URL is set
         window.addEventListener('load', function() {
-            const savedUrl = localStorage.getItem('savedRoverUrl');
-            if (savedUrl) {
-                document.getElementById('roverUrl').value = savedUrl;
+            if (ROVER_URL !== 'YOUR_REMOTE_IT_URL_HERE') {
+                // Automatically show that we're ready to connect
+                updateStatus('🔵 Ready to connect to rover', 'disconnected');
             }
         });
     </script>
